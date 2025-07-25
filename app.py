@@ -1,15 +1,14 @@
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, flash
 from werkzeug.utils import secure_filename
 import os
-import pandas as pd
-from script import processar_planilhas  # função no seu script.py
+from analise import executar_analise  # sua função de análise
 
 app = Flask(__name__)
-app.secret_key = 'sua_chave_supersecreta'  # Troque por algo seguro
+app.secret_key = 'sua_chave_supersecreta'
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Usuário e senha fixos (você pode melhorar isso depois)
+# Login simples
 USUARIOS = {
     'admin': 'senha123'
 }
@@ -43,11 +42,10 @@ def painel():
             arquivo.save(caminho)
             arquivos.append(caminho)
 
-        # Rodar o script e gerar resultado
-        caminho_saida = os.path.join(app.config['UPLOAD_FOLDER'], 'resultado.xlsx')
-        processar_planilhas(*arquivos, caminho_saida)
-
-        return send_file(caminho_saida, as_attachment=True)
+        caminho_saida = os.path.join('static', 'resultado_analise.xlsx')
+        executar_analise(arquivos[0], arquivos[1], arquivos[2], caminho_saida)
+        flash(f'✅ Análise concluída. <a href="/static/resultado_analise.xlsx" target="_blank">Clique aqui para baixar</a>', 'success')
+        return redirect(request.url)
 
     return render_template('painel.html')
 
