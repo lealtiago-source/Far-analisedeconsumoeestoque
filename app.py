@@ -9,6 +9,9 @@ app.secret_key = 'sua_chave_supersecreta'
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# ✅ Garante que a pasta 'uploads' existe (importante para o Render)
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 # Login simples
 USUARIOS = {
     'admin': 'senha123'
@@ -40,12 +43,20 @@ def painel():
                 return redirect(request.url)
             filename = secure_filename(arquivo.filename)
             caminho = os.path.join(app.config['UPLOAD_FOLDER'], f'arquivo{i}.xlsx')
-            arquivo.save(caminho)
+            try:
+                arquivo.save(caminho)
+            except Exception as e:
+                flash(f'Erro ao salvar o arquivo {i}: {e}')
+                return redirect(request.url)
             arquivos.append(caminho)
 
-        caminho_saida = os.path.join('static', 'resultado_analise.xlsx')
-        executar_analise(arquivos[0], arquivos[1], arquivos[2], caminho_saida)
-        flash(f'✅ Análise concluída. <a href="/static/resultado_analise.xlsx" target="_blank">Clique aqui para baixar</a>', 'success')
+        try:
+            caminho_saida = os.path.join('static', 'resultado_analise.xlsx')
+            executar_analise(arquivos[0], arquivos[1], arquivos[2], caminho_saida)
+            flash(f'✅ Análise concluída. <a href="/static/resultado_analise.xlsx" target="_blank">Clique aqui para baixar</a>', 'success')
+        except Exception as e:
+            flash(f'Erro na análise: {e}', 'error')
+
         return redirect(request.url)
 
     return render_template('painel.html')
@@ -56,5 +67,4 @@ def logout():
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     app.run(debug=True)
