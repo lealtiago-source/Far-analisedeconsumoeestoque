@@ -1,0 +1,61 @@
+from flask import Flask, render_template, request, redirect, url_for, send_file, session, flash
+from werkzeug.utils import secure_filename
+import os
+import pandas as pd
+from script import processar_planilhas  # função no seu script.py
+
+app = Flask(__name__)
+app.secret_key = 'sua_chave_supersecreta'  # Troque por algo seguro
+UPLOAD_FOLDER = 'uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Usuário e senha fixos (você pode melhorar isso depois)
+USUARIOS = {
+    'admin': 'senha123'
+}
+
+@app.route('/', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        usuario = request.form['usuario']
+        senha = request.form['senha']
+        if usuario in USUARIOS and USUARIOS[usuario] == senha:
+            session['usuario'] = usuario
+            return redirect(url_for('painel'))
+        else:
+            flash('Usuário ou senha inválidos.')
+    return render_template('login.html')
+
+@app.route('/painel', methods=['GET', 'POST'])
+def painel():
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        arquivos = []
+        for i in range(1, 4):
+            arquivo = request.files.get(f'arquivo{i}')
+            if not arquivo or not arquivo.filename.endswith('.xlsx'):
+                flash(f'Arquivo {i} inválido.')
+                return redirect(request.url)
+            filename = secure_filename(arquivo.filename)
+            caminho = os.path.join(app.config['UPLOAD_FOLDER'], f'arquivo{i}.xlsx')
+            arquivo.save(caminho)
+            arquivos.append(caminho)
+
+        # Rodar o script e gerar resultado
+        caminho_saida = os.path.join(app.config['UPLOAD_FOLDER'], 'resultado.xlsx')
+        processar_planilhas(*arquivos, caminho_saida)
+
+        return send_file(caminho_saida, as_attachment=True)
+
+    return render_template('painel.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('usuario', None)
+    return redirect(url_for('login'))
+
+if __name__ == '__main__':
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    app.run(debug=True)

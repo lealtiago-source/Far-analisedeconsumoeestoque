@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Painel de Análise</title>
+</head>
+<body>
+    <h2>Enviar planilhas para análise</h2>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul>
+          {% for msg in messages %}
+            <li style="color:red">{{ msg }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+    <form method="POST" enctype="multipart/form-data">
+        <label>Arquivo 1: <input type="file" name="arquivo1" accept=".xlsx"></label><br><br>
+        <label>Arquivo 2: <input type="file" name="arquivo2" accept=".xlsx"></label><br><br>
+        <label>Arquivo 3: <input type="file" name="arquivo3" accept=".xlsx"></label><br><br>
+        <button type="submit">Rodar análise</button>
+    </form>
+    <br>
+    <a href="{{ url_for('logout') }}">Sair</a>
+</body>
+</html>
