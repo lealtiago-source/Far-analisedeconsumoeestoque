@@ -1,87 +1,134 @@
 import pandas as pd
 from datetime import datetime, timedelta
-import numpy as np
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 import re
+import os
 
-def normalizar_nome(med):
-    if pd.isna(med):
+
+def normalizar_nome(nome):
+    if pd.isna(nome):
         return ""
+    nome = nome.lower()
 
-    med = med.lower()
-    med = re.sub(r'\b(comprimido|cápsula|cápsulas|dr\u00e1gea|comprimidos|caps)\b', '', med)
-    med = re.sub(r'\b(água para injeção|água destilada)\b', 'água', med)
-    med = re.sub(r'[^a-zA-Z0-9\s]', '', med)
-    med = re.sub(r'\s+', ' ', med).strip()
-    return med
-
-def executar_analise(df_estoque, df_dispensacao, df_distribuicao):
-    df_estoque = df_estoque.dropna(subset=["Medicamento/Produto"])
-    df_estoque["Medicamento/Produto Normalizado"] = df_estoque["Medicamento/Produto"].apply(normalizar_nome)
-
-    df_dispensacao = df_dispensacao.dropna(subset=["Medicamento/Produto"])
-    df_dispensacao["Medicamento/Produto Normalizado"] = df_dispensacao["Medicamento/Produto"].apply(normalizar_nome)
-
-    df_distribuicao = df_distribuicao.dropna(subset=["Medicamento/Produto"])
-    df_distribuicao["Medicamento/Produto Normalizado"] = df_distribuicao["Medicamento/Produto"].apply(normalizar_nome)
-
-    df_dispensacao["Data"] = pd.to_datetime(df_dispensacao["Data Dispensação"], dayfirst=True, errors='coerce')
-    df_distribuicao["Data"] = pd.to_datetime(df_distribuicao["Data Distribuição"], dayfirst=True, errors='coerce')
-
-    hoje = datetime.today()
-    trinta_dias_atras = hoje - timedelta(days=30)
-
-    dispensado_30d = df_dispensacao[df_dispensacao["Data"] >= trinta_dias_atras]
-    distribuido_30d = df_distribuicao[df_distribuicao["Data"] >= trinta_dias_atras]
-
-    consumo_dispensado = dispensado_30d.groupby("Medicamento/Produto Normalizado")["Quantidade Dispensada"].sum()
-    consumo_distribuido = distribuido_30d.groupby("Medicamento/Produto Normalizado")["Quantidade Distribuída"].sum()
-
-    consumo_total = consumo_dispensado.add(consumo_distribuido, fill_value=0).rename("Total Consumido")
-
-    df_estoque_group = df_estoque.groupby("Medicamento/Produto Normalizado").agg({
-        "Quantidade em Estoque": "sum",
-        "Validade": "first",
-        "Medicamento/Produto": "first"
-    }).reset_index()
-
-    resultado = pd.merge(df_estoque_group, consumo_total, how="left", on="Medicamento/Produto Normalizado")
-    resultado["Total Consumido"] = resultado["Total Consumido"].fillna(0)
-
-    resultado["Consumo Mensal Médio Corrigido"] = resultado["Total Consumido"] / 1  # 30 dias = 1 mês
-
-    resultado["Previsão Fim do Estoque"] = resultado.apply(lambda row: 
-        (hoje + timedelta(days=(row["Quantidade em Estoque"] / row["Consumo Mensal Médio Corrigido"] * 30))
-         if row["Consumo Mensal Médio Corrigido"] > 0 else pd.NaT), axis=1)
-
-    resultado["Previsão Fim do Estoque"] = pd.to_datetime(resultado["Previsão Fim do Estoque"]).dt.date
-
-    resultado["Análise de Dias com Falta"] = resultado.apply(lambda row: 
-        f"FALTA DESDE {hoje.strftime('%d/%m/%Y')}" if row["Quantidade em Estoque"] == 0 else "", axis=1)
-
-    colunas_finais = [
-        "Medicamento/Produto", "Quantidade em Estoque", "Validade",
-        "Total Consumido", "Consumo Mensal Médio Corrigido",
-        "Previsão Fim do Estoque", "Análise de Dias com Falta"
+    # Agrupar equivalentes
+    equivalentes = [
+        (r'\bcomprimido\b|\bcápsula\b|\bdrágea\b', ''),
+        (r'\bsolução oral\b|\bsuspensão oral\b', 'solução'),
+        (r'\bágua destilada\b|\bágua para injeção\b', 'água'),
     ]
 
-    resultado_final = resultado[colunas_finais]
+    for padrao, substituto in equivalentes:
+        nome = re.sub(padrao, substituto, nome)
 
-    caminho_saida = "resultado_analise.xlsx"
-    resultado_final.to_excel(caminho_saida, index=False)
+    # Limpar espaços e pontuações duplicadas
+    nome = re.sub(r'[^\w\s/%]', '', nome)
+    nome = re.sub(r'\s+', ' ', nome).strip()
+    return nome
 
-    # Destaque em vermelho para previsão de fim < 4 meses
-    wb = load_workbook(caminho_saida)
-    ws = wb.active
 
-    red_fill = PatternFill(start_color="FF9999", end_color="FF9999", fill_type="solid")
+def executar_analise(caminho_dispensacao, caminho_distribuicao, caminho_estoque, caminho_saida):
+    try:
+        # Carregar os dados
+        df_disp = pd.read_excel(caminho_dispensacao)
+        df_dist = pd.read_excel(caminho_distribuicao)
+        df_estoque = pd.read_excel(caminho_estoque)
 
-    for row in range(2, ws.max_row + 1):
-        data_previsao = ws[f"F{row}"].value
-        if data_previsao and isinstance(data_previsao, datetime):
-            if data_previsao.date() < (hoje + timedelta(days=120)).date():
-                ws[f"F{row}"].fill = red_fill
+        # Remover linhas vazias
+        df_disp.dropna(subset=['Medicamento/Produto'], inplace=True)
+        df_dist.dropna(subset=['Medicamento/Produto'], inplace=True)
+        df_estoque.dropna(subset=['Medicamento/Produto'], inplace=True)
 
-    wb.save(caminho_saida)
-    print(f"Análise salva em: {caminho_saida}")
+        # Normalizar nomes
+        df_disp['Medicamento Normalizado'] = df_disp['Medicamento/Produto'].apply(normalizar_nome)
+        df_dist['Medicamento Normalizado'] = df_dist['Medicamento/Produto'].apply(normalizar_nome)
+        df_estoque['Medicamento Normalizado'] = df_estoque['Medicamento/Produto'].apply(normalizar_nome)
+
+        # Somar quantidades dispensadas e distribuídas
+        disp = df_disp.groupby('Medicamento Normalizado')['Quantidade Dispensada'].sum()
+        dist = df_dist.groupby('Medicamento Normalizado')['Quantidade distribuída (unidades)'].sum()
+
+        # Calcular total consumido (dispensado + distribuído)
+        total_consumido = disp.add(dist, fill_value=0)
+
+        # Dias cobertos (sem falta)
+        dias_disp = df_disp.copy()
+        dias_disp['Data Dispensação'] = pd.to_datetime(dias_disp['Data Dispensação'], errors='coerce')
+        dias_validos = dias_disp.dropna(subset=['Data Dispensação'])
+        dias_por_medicamento = dias_validos.groupby('Medicamento Normalizado')['Data Dispensação'].nunique()
+
+        consumo_medio_corrigido = total_consumido / dias_por_medicamento
+        consumo_medio_corrigido = consumo_medio_corrigido.fillna(0).round(2)
+
+        # Estoque atual agrupado por medicamento
+        estoque = df_estoque.copy()
+        estoque['Validade'] = pd.to_datetime(estoque['Validade'], errors='coerce')
+        estoque_agrupado = estoque.groupby('Medicamento Normalizado').agg({
+            'Quantidade em Estoque': 'sum',
+            'Validade': 'min'
+        }).reset_index()
+
+        # Juntar tudo
+        resumo = pd.DataFrame({'Total Consumido': total_consumido})
+        resumo['Consumo Médio Diário Corrigido'] = consumo_medio_corrigido
+        resumo = resumo.reset_index().rename(columns={'index': 'Medicamento Normalizado'})
+        resumo = pd.merge(resumo, estoque_agrupado, on='Medicamento Normalizado', how='left')
+
+        # Previsão de fim de estoque
+        resumo['Previsão Fim do Estoque'] = resumo.apply(
+            lambda row: (datetime.today() + timedelta(days=int(row['Quantidade em Estoque'] / row['Consumo Médio Diário Corrigido'])))
+            if row['Consumo Médio Diário Corrigido'] > 0 else 'FALTA',
+            axis=1
+        )
+
+        # Diagnóstico da falta
+        resumo['Análise de Falta'] = resumo['Quantidade em Estoque'].apply(
+            lambda q: 'FALTA' if q == 0 or pd.isna(q) else 'OK'
+        )
+
+        # Corrigir coluna final de previsão
+        resumo['Previsão Fim do Estoque'] = pd.to_datetime(resumo['Previsão Fim do Estoque'], errors='coerce').dt.date
+
+        # Organizar colunas finais
+        colunas_finais = [
+            'Medicamento Normalizado', 'Total Consumido',
+            'Consumo Médio Diário Corrigido', 'Quantidade em Estoque',
+            'Validade', 'Previsão Fim do Estoque', 'Análise de Falta'
+        ]
+        resumo_final = resumo[colunas_finais]
+
+        # Salvar com formatação
+        arquivo_saida = os.path.join(caminho_saida, 'analise_consumo_estoque.xlsx')
+        resumo_final.to_excel(arquivo_saida, index=False)
+
+        # Colorir com openpyxl
+        wb = load_workbook(arquivo_saida)
+        ws = wb.active
+
+        for i, row in enumerate(ws.iter_rows(min_row=2, max_row=ws.max_row), start=2):
+            qtd = row[3].value  # Quantidade em Estoque
+            previsao = row[5].value  # Previsão fim
+            analise = row[6].value
+
+            # Cores
+            vermelho = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
+            amarelo = PatternFill(start_color='FFEB9C', end_color='FFEB9C', fill_type='solid')
+            verde = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')
+
+            if analise == 'FALTA':
+                for cell in row:
+                    cell.fill = vermelho
+            elif previsao and isinstance(previsao, datetime.date):
+                dias_restantes = (previsao - datetime.today().date()).days
+                if dias_restantes < 120:
+                    for cell in row:
+                        cell.fill = amarelo
+                else:
+                    for cell in row:
+                        cell.fill = verde
+
+        wb.save(arquivo_saida)
+        print("Análise concluída com sucesso.")
+
+    except Exception as e:
+        print(f"Erro na análise: {e}")
