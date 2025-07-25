@@ -1,192 +1,104 @@
 import pandas as pd
 from datetime import datetime, timedelta
+import re
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
-import re
-import sys
 
-ARQUIVO_EXCEL = 'dados brutos dispensação e estoque e distribuíção.xlsx'
-ARQUIVO_SAIDA = 'segunda tentativa.xlsx'
 
-FILL_VERMELHO = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
-FILL_ROXO = PatternFill(start_color='B4A7D6', end_color='B4A7D6', fill_type='solid')
-FILL_VERDE = PatternFill(start_color='A9D08E', end_color='A9D08E', fill_type='solid')
-FILL_AMARELO = PatternFill(start_color='FFD966', end_color='FFD966', fill_type='solid')
-
-def agrupar_equivalentes(nome):
-    if pd.isna(nome): return ''
+def normalizar_nome(nome):
     nome = str(nome).lower()
-    nome = re.sub(r'\bcomprimido(s)?( revestido(s)?)?\b', '', nome)
-    nome = re.sub(r'\bcápsula(s)?( dura(s)?)?\b', '', nome)
-    nome = re.sub(r'\bdrágea(s)?\b', '', nome)
-    nome = re.sub(r'[^\w\s/%]', '', nome)
-    nome = re.sub(r'\s+', ' ', nome)
-    return nome.strip()
+    nome = re.sub(r'\b(comprimido|cápsula|drágea|comprimidos|cápsulas)\b', '', nome)
+    nome = re.sub(r'\bágua (destilada|para injeção)\b', 'água', nome)
+    nome = re.sub(r'\s+', ' ', nome).strip()
+    return nome
 
-def carregar_dados():
-    try:
-        df_disp = pd.read_excel(ARQUIVO_EXCEL, sheet_name='relatorioDispensacaoPorMedicame',
-                                usecols=['Data Dispensação', 'Medicamento/Produto', 'Lote', 'Quantidade Dispensada'])
-        df_dist = pd.read_excel(ARQUIVO_EXCEL, sheet_name='distribuíções',
-                                usecols=['Data Distribuição', 'Medicamento/Produto', 'Lote', 'Quantidade distribuída (unidades)'])
-        df_estoque = pd.read_excel(ARQUIVO_EXCEL, sheet_name='estoque')
-    except Exception as e:
-        print(f"ERRO ao ler arquivo ou planilhas: {e}")
-        sys.exit(1)
 
-    df_disp = df_disp.rename(columns={'Data Dispensação': 'Data', 'Quantidade Dispensada': 'Quantidade'})
-    df_dist = df_dist.rename(columns={'Data Distribuição': 'Data', 'Quantidade distribuída (unidades)': 'Quantidade'})
+def executar_analise(caminho_estoque, caminho_dispensacao, caminho_distribuicao, caminho_saida):
+    # Leitura dos dados
+    df_estoque = pd.read_excel(caminho_estoque)
+    df_dispensacao = pd.read_excel(caminho_dispensacao)
+    df_distribuicao = pd.read_excel(caminho_distribuicao)
 
-    df_combinado = pd.concat([df_disp, df_dist], ignore_index=True)
-    df_combinado['Fonte'] = ['dispensação'] * len(df_disp) + ['distribuição'] * len(df_dist)
-    df_estoque.columns = df_estoque.columns.str.strip()
+    # Padronização de colunas
+    df_estoque = df_estoque[['Medicamento/Produto', 'Validade', 'Lote', 'Quantidade em Estoque']].copy()
+    df_dispensacao = df_dispensacao[['Data Dispensação', 'Medicamento/Produto', 'Lote', 'Quantidade Dispensada']].copy()
+    df_distribuicao = df_distribuicao[['Data Distribuição', 'Medicamento/Produto', 'Lote', 'Quantidade distribuída (unidades)']].copy()
 
-    return df_combinado, df_estoque
+    # Normalização de nomes
+    df_estoque['Nome Normalizado'] = df_estoque['Medicamento/Produto'].apply(normalizar_nome)
+    df_dispensacao['Nome Normalizado'] = df_dispensacao['Medicamento/Produto'].apply(normalizar_nome)
+    df_distribuicao['Nome Normalizado'] = df_distribuicao['Medicamento/Produto'].apply(normalizar_nome)
 
-def processar_resumo(df_comb, df_estoque):
-    df_comb['Medicamento Agrupado'] = df_comb['Medicamento/Produto'].apply(agrupar_equivalentes)
-    df_estoque['Medicamento Agrupado'] = df_estoque['Medicamento/Produto'].apply(agrupar_equivalentes)
+    # Remover linhas vazias
+    df_estoque = df_estoque[df_estoque['Medicamento/Produto'].notna()]
+    df_dispensacao = df_dispensacao[df_dispensacao['Medicamento/Produto'].notna()]
+    df_distribuicao = df_distribuicao[df_distribuicao['Medicamento/Produto'].notna()]
 
-    df_comb['Data'] = pd.to_datetime(df_comb['Data'], errors='coerce')
-    df_estoque['Validade'] = pd.to_datetime(df_estoque['Validade'], errors='coerce')
-    df_comb = df_comb.sort_values(['Medicamento Agrupado', 'Data', 'Lote'])
+    # Conversão de datas
+    df_dispensacao['Data Dispensação'] = pd.to_datetime(df_dispensacao['Data Dispensação'], errors='coerce')
+    df_distribuicao['Data Distribuição'] = pd.to_datetime(df_distribuicao['Data Distribuição'], errors='coerce')
+    hoje = pd.to_datetime(datetime.today().date())
 
-    data_minima = df_comb['Data'].min()
-    data_maxima = df_comb['Data'].max()
-    dias_totais = (data_maxima - data_minima).days + 1 if pd.notna(data_minima) else 0
+    # Soma da quantidade por medicamento normalizado
+    dispensacao_agrupada = df_dispensacao.groupby('Nome Normalizado').agg(
+        Quantidade_Dispensada_Total=('Quantidade Dispensada', 'sum'),
+        Dias_Dispensados=('Data Dispensação', lambda x: x.nunique())
+    ).reset_index()
 
-    resumo_consumo = []
-    for medicamento, dados in df_comb.groupby('Medicamento Agrupado'):
-        dados = dados.sort_values('Data').reset_index(drop=True)
-        dias_falta = 0
-        for i in range(1, len(dados)):
-            if dados.loc[i - 1, 'Lote'] != dados.loc[i, 'Lote']:
-                diff = (dados.loc[i, 'Data'] - dados.loc[i - 1, 'Data']).days
-                if diff > 15:
-                    dias_falta += diff
-        consumo_total = dados['Quantidade'].sum()
-        dias_validos = max(dias_totais - dias_falta, 1)
-        consumo_mensal = round((consumo_total / dias_validos) * 30, 2)
-        ultima_data = dados['Data'].max()
-        nome_original = dados['Medicamento/Produto'].iloc[-1]
-        resumo_consumo.append({
-            'Medicamento Agrupado': medicamento,
-            'Medicamento': nome_original,
-            'Consumo Total': consumo_total,
-            'Dias com Falta': dias_falta,
-            'Período Analisado (dias)': dias_validos,
-            'Consumo Mensal Médio Corrigido': consumo_mensal,
-            'Última Dispensação': ultima_data
-        })
+    distribuicao_agrupada = df_distribuicao.groupby('Nome Normalizado').agg(
+        Quantidade_Distribuida_Total=('Quantidade distribuída (unidades)', 'sum')
+    ).reset_index()
 
-    resumo = pd.DataFrame(resumo_consumo)
+    estoque_agrupado = df_estoque.groupby('Nome Normalizado').agg(
+        Quantidade_Estoque=('Quantidade em Estoque', 'sum'),
+        Validade_Mais_Proxima=('Validade', 'min')
+    ).reset_index()
 
-    meds_estoque_unicos = df_estoque[~df_estoque['Medicamento Agrupado'].isin(resumo['Medicamento Agrupado'])]
-    if not meds_estoque_unicos.empty:
-        for _, row in meds_estoque_unicos.iterrows():
-            resumo = pd.concat([resumo, pd.DataFrame([{
-                'Medicamento Agrupado': row['Medicamento Agrupado'],
-                'Medicamento': row['Medicamento/Produto'],
-                'Consumo Total': 0,
-                'Dias com Falta': 0,
-                'Período Analisado (dias)': 0,
-                'Consumo Mensal Médio Corrigido': 0,
-                'Última Dispensação': pd.NaT
-            }])], ignore_index=True)
+    # Combina as tabelas
+    df_final = estoque_agrupado.merge(dispensacao_agrupada, on='Nome Normalizado', how='left')
+    df_final = df_final.merge(distribuicao_agrupada, on='Nome Normalizado', how='left')
 
-    estoque_val = df_estoque.groupby('Medicamento Agrupado').agg({
-        'Quantidade em Estoque': 'sum',
-        'Validade': 'min'
-    }).reset_index()
+    df_final.fillna(0, inplace=True)
 
-    resumo = resumo.merge(estoque_val, on='Medicamento Agrupado', how='left')
+    # Consumo médio diário considerando apenas dias com dispensação
+    df_final['Consumo Médio Diário'] = df_final.apply(
+        lambda row: row['Quantidade_Dispensada_Total'] / row['Dias_Dispensados']
+        if row['Dias_Dispensados'] > 0 else 0, axis=1
+    )
 
-    hoje = datetime.today()
+    # Previsão fim do estoque
+    df_final['Previsão Fim do Estoque'] = df_final.apply(
+        lambda row: (hoje + timedelta(days=row['Quantidade_Estoque'] / row['Consumo Médio Diário']))
+        if row['Consumo Médio Diário'] > 0 else 'FALTA DESDE ' + hoje.strftime('%d/%m/%Y'),
+        axis=1
+    )
 
-    def prever_estoque_ou_falta(row):
-        consumo = row['Consumo Mensal Médio Corrigido']
-        estoque = row['Quantidade em Estoque']
-        if isinstance(estoque, (int, float)) and estoque > 0 and consumo > 0:
-            dias_restantes = (estoque / consumo) * 30
-            return hoje + timedelta(days=dias_restantes)
-        return pd.NaT
+    # Reorganizar colunas para saída
+    df_final = df_final[[
+        'Nome Normalizado',
+        'Quantidade_Estoque',
+        'Quantidade_Dispensada_Total',
+        'Quantidade_Distribuida_Total',
+        'Consumo Médio Diário',
+        'Previsão Fim do Estoque',
+        'Validade_Mais_Proxima'
+    ]]
 
-    def ajustar_quantidade_estoque(row):
-        estoque = row['Quantidade em Estoque']
-        if pd.isna(estoque) or estoque == 0:
-            if pd.notna(row['Última Dispensação']):
-                return f"FALTA DESDE {row['Última Dispensação'].date().strftime('%d/%m/%Y')}"
-            else:
-                return "FALTA"
-        return estoque
+    # Salvar em Excel
+    df_final.to_excel(caminho_saida, index=False)
 
-    resumo['Previsão Fim do Estoque'] = resumo.apply(prever_estoque_ou_falta, axis=1)
-    resumo['Quantidade em Estoque'] = resumo.apply(ajustar_quantidade_estoque, axis=1)
+    # Formatação (destaque em vermelho se previsão < 4 meses)
+    wb = load_workbook(caminho_saida)
+    ws = wb.active
 
-    return resumo.drop(columns=['Medicamento Agrupado', 'Última Dispensação'])
-
-def aplicar_formatacao_excel(arquivo_saida):
-    try:
-        wb = load_workbook(arquivo_saida)
-        ws = wb.active
-    except Exception as e:
-        print(f"ERRO ao abrir arquivo Excel para formatação: {e}")
-        sys.exit(1)
-
-    col_previsao = col_validade = None
-    for col in range(1, ws.max_column + 1):
-        valor_cab = ws.cell(row=1, column=col).value
-        if valor_cab == 'Previsão Fim do Estoque':
-            col_previsao = col
-        elif valor_cab == 'Validade':
-            col_validade = col
-
-    if col_previsao is None or col_validade is None:
-        print("ERRO: Não encontrou as colunas necessárias para formatação.")
-        sys.exit(1)
-
-    hoje = datetime.today()
-    limite_alerta = hoje + timedelta(days=120)
+    red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
 
     for row in range(2, ws.max_row + 1):
-        cell_prev = ws.cell(row=row, column=col_previsao)
-        cell_val = ws.cell(row=row, column=col_validade)
+        valor = ws[f"F{row}"].value
+        if isinstance(valor, datetime):
+            if valor <= hoje + timedelta(days=120):  # menos de 4 meses
+                ws[f"F{row}"].fill = red_fill
+        elif isinstance(valor, str) and valor.startswith("FALTA DESDE"):
+            ws[f"F{row}"].fill = red_fill
 
-        try:
-            previsao = pd.to_datetime(cell_prev.value)
-            validade = pd.to_datetime(cell_val.value)
-            cell_prev.number_format = 'DD/MM/YYYY'
-            cell_val.number_format = 'DD/MM/YYYY'
-
-            if validade < previsao:
-                cell_val.fill = FILL_ROXO
-            elif validade < previsao - timedelta(days=120):
-                cell_val.fill = FILL_VERDE
-            elif validade >= previsao - timedelta(days=120) and validade >= hoje:
-                cell_val.fill = FILL_AMARELO
-
-            if previsao < limite_alerta:
-                cell_prev.fill = FILL_VERMELHO
-        except:
-            continue
-
-    wb.save(arquivo_saida)
-
-def main():
-    print("Carregando dados...")
-    df_comb, df_estoque = carregar_dados()
-
-    print("Processando resumo...")
-    resumo_final = processar_resumo(df_comb, df_estoque)
-
-    print(f"Salvando arquivo '{ARQUIVO_SAIDA}'...")
-    with pd.ExcelWriter(ARQUIVO_SAIDA, engine='openpyxl') as writer:
-        resumo_final.to_excel(writer, index=False)
-
-    print("Aplicando formatação no Excel...")
-    aplicar_formatacao_excel(ARQUIVO_SAIDA)
-
-    print("Processamento concluído com sucesso!")
-
-if __name__ == '__main__':
-    main()
+    wb.save(caminho_saida)
