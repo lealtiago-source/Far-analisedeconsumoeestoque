@@ -5,6 +5,7 @@ from analise import executar_analise  # sua função de análise
 
 app = Flask(__name__)
 app.secret_key = 'sua_chave_supersecreta'
+
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
