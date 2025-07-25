@@ -1,27 +1,35 @@
+
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <title>Painel de Análise</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f8f8f8; padding: 20px; }
+        h1 { color: #333; }
+        form { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        label { display: block; margin-bottom: 10px; }
+        input[type=file], input[type=submit] { margin-bottom: 15px; }
+        .flash { margin-top: 20px; padding: 10px; border-radius: 5px; }
+        .flash.success { background-color: #d4edda; color: #155724; }
+        .flash.error { background-color: #f8d7da; color: #721c24; }
+    </style>
 </head>
 <body>
-    <h2>Enviar planilhas para análise</h2>
-    {% with messages = get_flashed_messages() %}
+    <h1>Upload de Arquivos para Análise</h1>
+    <form method="post" enctype="multipart/form-data">
+        <label>Arquivo 1 (Dispensação): <input type="file" name="arquivo1" required></label>
+        <label>Arquivo 2 (Distribuição): <input type="file" name="arquivo2" required></label>
+        <label>Arquivo 3 (Estoque): <input type="file" name="arquivo3" required></label>
+        <input type="submit" value="Enviar e Analisar">
+    </form>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <ul>
-          {% for msg in messages %}
-            <li style="color:red">{{ msg }}</li>
-          {% endfor %}
-        </ul>
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message|safe }}</div>
+        {% endfor %}
       {% endif %}
     {% endwith %}
-    <form method="POST" enctype="multipart/form-data">
-        <label>Arquivo 1: <input type="file" name="arquivo1" accept=".xlsx"></label><br><br>
-        <label>Arquivo 2: <input type="file" name="arquivo2" accept=".xlsx"></label><br><br>
-        <label>Arquivo 3: <input type="file" name="arquivo3" accept=".xlsx"></label><br><br>
-        <button type="submit">Rodar análise</button>
-    </form>
-    <br>
-    <a href="{{ url_for('logout') }}">Sair</a>
 </body>
 </html>
