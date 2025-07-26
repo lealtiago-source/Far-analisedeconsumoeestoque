@@ -1,35 +1,178 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>Painel de Análise</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f8f8f8; padding: 20px; }
-        h1 { color: #333; }
-        form { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        label { display: block; margin-bottom: 10px; }
-        input[type=file], input[type=submit] { margin-bottom: 15px; }
-        .flash { margin-top: 20px; padding: 10px; border-radius: 5px; }
-        .flash.success { background-color: #d4edda; color: #155724; }
-        .flash.error { background-color: #f8d7da; color: #721c24; }
+        /* Reset básico e fonte */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0 20px 0 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f2f4f8;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Topo */
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 0 0 10px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h2 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.5rem;
+        }
+        header span a {
+            color: #dcdcdc;
+            text-decoration: none;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        header span a:hover {
+            color: #fff;
+            text-decoration: underline;
+        }
+
+        /* Conteúdo principal */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 40px;
+        }
+
+        /* Formulário */
+        form {
+            background: #ffffff;
+            padding: 25px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 480px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        form label {
+            display: block;
+            margin-bottom: 15px;
+            font-weight: 600;
+            font-size: 1rem;
+            color: #333;
+            cursor: pointer;
+        }
+        form label input[type="file"] {
+            display: block;
+            margin-top: 6px;
+            cursor: pointer;
+        }
+        form input[type="submit"] {
+            background-color: #28a745;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            width: 100%;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        form input[type="submit"]:hover {
+            background-color: #218838;
+        }
+
+        /* Mensagens flash */
+        .flash {
+            margin: 20px auto 0 auto;
+            padding: 15px;
+            border-radius: 6px;
+            font-weight: 700;
+            max-width: 480px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .flash.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .flash.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Rodapé */
+        footer {
+            margin-top: auto;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            padding: 15px 0;
+            background-color: #f1f1f1;
+            border-top: 1px solid #ccc;
+        }
+
+        /* Responsivo */
+        @media(max-width: 540px) {
+            header, form {
+                padding-left: 15px;
+                padding-right: 15px;
+            }
+            form label {
+                font-size: 0.9rem;
+            }
+            form input[type="submit"] {
+                font-size: 1rem;
+                padding: 10px;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>Upload de Arquivos para Análise</h1>
-    <form method="post" enctype="multipart/form-data">
-        <label>Arquivo 1 (Dispensação): <input type="file" name="arquivo1" required></label>
-        <label>Arquivo 2 (Distribuição): <input type="file" name="arquivo2" required></label>
-        <label>Arquivo 3 (Estoque): <input type="file" name="arquivo3" required></label>
-        <input type="submit" value="Enviar e Analisar">
-    </form>
+    <header>
+        <h2>Painel de Análise de Medicamentos</h2>
+        <span>
+            Bem-vindo, {{ session['usuario'] }}
+            <a href="{{ url_for('logout') }}">Sair</a>
+        </span>
+    </header>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="flash {{ category }}">{{ message|safe }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+    <main>
+        <h1>Upload de Arquivos para Análise</h1>
+
+        <form method="post" enctype="multipart/form-data">
+            <label>📁 Arquivo 1 (Dispensação): 
+                <input type="file" name="arquivo1" required>
+            </label>
+            <label>📦 Arquivo 2 (Distribuição): 
+                <input type="file" name="arquivo2" required>
+            </label>
+            <label>🏥 Arquivo 3 (Estoque): 
+                <input type="file" name="arquivo3" required>
+            </label>
+            <input type="submit" value="Enviar e Analisar">
+        </form>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message|safe }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+    </main>
+
+    <footer>
+        Desenvolvido pelo farmacêutico Tiago Leal
+    </footer>
 </body>
 </html>
