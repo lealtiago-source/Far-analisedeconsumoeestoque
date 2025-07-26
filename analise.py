@@ -26,11 +26,16 @@ def agrupar_equivalentes(nome):
 
 def executar_analise(arquivo_dispensacao, arquivo_distribuicao, arquivo_estoque):
     try:
-        df_disp = pd.read_excel(arquivo_dispensacao,
-                                usecols=['Data Dispensação', 'Medicamento/Produto', 'Lote', 'Quantidade Dispensada'])
-        df_dist = pd.read_excel(arquivo_distribuicao,
-                                usecols=['Data Distribuição', 'Medicamento/Produto', 'Lote', 'Quantidade distribuída (unidades)'])
+        df_disp = pd.read_excel(arquivo_dispensacao)
+        df_disp.columns = df_disp.columns.str.strip()  # Remove espaços nos nomes das colunas
+        df_disp = df_disp[['Data Dispensação', 'Medicamento/Produto', 'Lote', 'Quantidade Dispensada']]
+
+        df_dist = pd.read_excel(arquivo_distribuicao)
+        df_dist.columns = df_dist.columns.str.strip()
+        df_dist = df_dist[['Data Distribuição', 'Medicamento/Produto', 'Lote', 'Quantidade distribuída (unidades)']]
+
         df_estoque = pd.read_excel(arquivo_estoque)
+        df_estoque.columns = df_estoque.columns.str.strip()
 
         df_disp = df_disp.rename(columns={
             'Data Dispensação': 'Data',
