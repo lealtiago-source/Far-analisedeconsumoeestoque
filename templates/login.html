@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <title>Login</title>
 </head>
+    <p style="text-align: center; margin-top: 20px;">
+    📄 <a href="{{ url_for('static', filename='Instruções.pdf') }}" target="_blank">
+        Baixar Manual de Instruções (PDF)
+    </a>
+</p>
 <body>
     <h2>Login</h2>
     {% with messages = get_flashed_messages() %}
