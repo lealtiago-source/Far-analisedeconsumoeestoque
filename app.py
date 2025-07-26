@@ -14,7 +14,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Login simples
 USUARIOS = {
-    'admin': 'senha123'
+    'admin': 'senha123',
+    'tiago': 'ticopinico',
+    'teste': '12435'
 }
 
 @app.route('/', methods=['GET', 'POST'])
