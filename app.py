@@ -51,8 +51,7 @@ def painel():
             arquivos.append(caminho)
 
         try:
-            caminho_saida = os.path.join('static', 'resultado_analise.xlsx')
-            executar_analise(arquivos[0], arquivos[1], arquivos[2], caminho_saida)
+            executar_analise(arquivos[0], arquivos[1], arquivos[2])
             flash(f'✅ Análise concluída. <a href="/static/resultado_analise.xlsx" target="_blank">Clique aqui para baixar</a>', 'success')
         except Exception as e:
             flash(f'Erro na análise: {e}', 'error')
