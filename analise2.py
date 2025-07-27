@@ -23,8 +23,11 @@ def executar_analise_remume(caminho_estoque, caminho_remume):
     df_estoque = pd.read_excel(caminho_estoque)
     df_remume = pd.read_excel(caminho_remume)
 
+    # Nome correto da coluna no REMUME
+    nome_col_remume = 'RELAÇÃO MUNICIPAL DE MEDICAMENTOS ESSENCIAIS'
+
     df_estoque['normalizado'] = df_estoque['Medicamento/Produto'].apply(normalizar_nome)
-    df_remume['normalizado'] = df_remume['RELAÇÃO MUNICIPAL DE MEDICAMENTOS ESSENCIAIS'].apply(normalizar_nome)
+    df_remume['normalizado'] = df_remume[nome_col_remume].apply(normalizar_nome)
 
     # Medicamentos que estão na REMUME e no estoque
     intersecao = df_estoque[df_estoque['normalizado'].isin(df_remume['normalizado'])]
@@ -32,22 +35,21 @@ def executar_analise_remume(caminho_estoque, caminho_remume):
     # Medicamentos que estão na REMUME mas NÃO estão no estoque
     falta_no_estoque = df_remume[~df_remume['normalizado'].isin(df_estoque['normalizado'])].copy()
     falta_no_estoque['Quantidade em Estoque'] = 'EM FALTA'
-    falta_no_estoque = falta_no_estoque[['Medicamento/Produto', 'Quantidade em Estoque']]
+    falta_no_estoque = falta_no_estoque[[nome_col_remume, 'Quantidade em Estoque']]
+    falta_no_estoque = falta_no_estoque.rename(columns={nome_col_remume: 'Medicamento/Produto'})
 
-    # Agrupar medicamentos em estoque
+    # Agrupar medicamentos em estoque (da REMUME)
     df_intersecao = intersecao.groupby('normalizado').agg({
         'Medicamento/Produto': 'last',
         'Quantidade em Estoque': 'sum'
     }).reset_index()
 
-    # Remover duplicados da intersecao + faltantes
     df_intersecao = df_intersecao[['Medicamento/Produto', 'Quantidade em Estoque']]
     df_intersecao['tag'] = 'REMUME'
     falta_no_estoque['tag'] = 'REMUME'
 
     # Medicamentos que estão apenas no estoque
     apenas_estoque = df_estoque[~df_estoque['normalizado'].isin(df_remume['normalizado'])]
-
     df_apenas_estoque = apenas_estoque.groupby('normalizado').agg({
         'Medicamento/Produto': 'last',
         'Quantidade em Estoque': 'sum'
