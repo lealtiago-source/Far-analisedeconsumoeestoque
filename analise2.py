@@ -38,8 +38,9 @@ def executar_analise_remume(caminho_estoque, caminho_remume):
     df_intersecao['tag'] = 'REMUME'
 
     falta_no_estoque = df_remume[~df_remume['normalizado'].isin(df_estoque['normalizado'])].copy()
-    falta_no_estoque['Medicamento/Produto'] = falta_no_estoque[nome_col_remume]
+    falta_no_estoque['Medicamento/Produto'] = falta_no_estoque['RELAÇÃO MUNICIPAL DE MEDICAMENTOS ESSENCIAIS']
     falta_no_estoque['Quantidade em Estoque'] = 'EM FALTA'
+    falta_no_estoque = falta_no_estoque[['Medicamento/Produto', 'Quantidade em Estoque']]
     falta_no_estoque['tag'] = 'REMUME'
     falta_no_estoque = falta_no_estoque[['Medicamento/Produto', 'Quantidade em Estoque', 'tag']]
 
