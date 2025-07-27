@@ -1,3 +1,4 @@
+
 import pandas as pd
 from datetime import datetime
 import re
@@ -23,46 +24,36 @@ def executar_analise_remume(caminho_estoque, caminho_remume):
     df_estoque = pd.read_excel(caminho_estoque)
     df_remume = pd.read_excel(caminho_remume)
 
-    # Nome correto da coluna no REMUME
     nome_col_remume = 'RELAÇÃO MUNICIPAL DE MEDICAMENTOS ESSENCIAIS'
 
     df_estoque['normalizado'] = df_estoque['Medicamento/Produto'].apply(normalizar_nome)
     df_remume['normalizado'] = df_remume[nome_col_remume].apply(normalizar_nome)
 
-    # Medicamentos que estão na REMUME e no estoque
     intersecao = df_estoque[df_estoque['normalizado'].isin(df_remume['normalizado'])]
 
-    # Medicamentos que estão na REMUME mas NÃO estão no estoque
-    falta_no_estoque = df_remume[~df_remume['normalizado'].isin(df_estoque['normalizado'])].copy()
-    falta_no_estoque['Quantidade em Estoque'] = 'EM FALTA'
-    falta_no_estoque = falta_no_estoque[[nome_col_remume, 'Quantidade em Estoque']]
-    falta_no_estoque = falta_no_estoque.rename(columns={nome_col_remume: 'Medicamento/Produto'})
-
-    # Agrupar medicamentos em estoque (da REMUME)
     df_intersecao = intersecao.groupby('normalizado').agg({
         'Medicamento/Produto': 'last',
         'Quantidade em Estoque': 'sum'
     }).reset_index()
 
-    df_intersecao = df_intersecao[['Medicamento/Produto', 'Quantidade em Estoque']]
     df_intersecao['tag'] = 'REMUME'
-    falta_no_estoque['tag'] = 'REMUME'
 
-    # Medicamentos que estão apenas no estoque
+    falta_no_estoque = df_remume[~df_remume['normalizado'].isin(df_estoque['normalizado'])].copy()
+    falta_no_estoque['Medicamento/Produto'] = falta_no_estoque[nome_col_remume]
+    falta_no_estoque['Quantidade em Estoque'] = 'EM FALTA'
+    falta_no_estoque['tag'] = 'REMUME'
+    falta_no_estoque = falta_no_estoque[['Medicamento/Produto', 'Quantidade em Estoque', 'tag']]
+
     apenas_estoque = df_estoque[~df_estoque['normalizado'].isin(df_remume['normalizado'])]
     df_apenas_estoque = apenas_estoque.groupby('normalizado').agg({
         'Medicamento/Produto': 'last',
         'Quantidade em Estoque': 'sum'
-    }).reset_index()[['Medicamento/Produto', 'Quantidade em Estoque']]
+    }).reset_index()
     df_apenas_estoque['tag'] = 'OUTROS'
 
-    # Concatenar: REMUME (encontrados + em falta), depois OUTROS
     df_final = pd.concat([df_intersecao, falta_no_estoque, df_apenas_estoque], ignore_index=True)
-
-    # Ordenar por nome de medicamento
     df_final = df_final.sort_values(by=['tag', 'Medicamento/Produto'], key=lambda col: col.str.lower()).reset_index(drop=True)
 
-    # Salvar Excel com título e data
     hoje = datetime.today().strftime('%d-%m-%Y')
     nome_arquivo = f'Estoque_REMUME_atualizado_{hoje}.xlsx'
     caminho_saida = os.path.join('static', nome_arquivo)
@@ -77,4 +68,3 @@ def executar_analise_remume(caminho_estoque, caminho_remume):
         cell.font = Font(bold=True)
 
     return nome_arquivo
-
