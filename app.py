@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, send_file,
 from werkzeug.utils import secure_filename
 import os
 from analise import executar_analise  # sua função de análise
+from analise2 import executar_analise_remume
 
 app = Flask(__name__)
 app.secret_key = 'sua_chave_supersecreta'
@@ -61,6 +62,32 @@ def painel():
         return redirect(request.url)
 
     return render_template('painel.html')
+
+@app.route('/analise2', methods=['POST'])
+def analise2():
+    arquivo_estoque = request.files.get('estoque_remume')
+    arquivo_remume = request.files.get('remume')
+
+    if not arquivo_estoque or not arquivo_remume:
+        flash('Arquivos de estoque e REMUME são obrigatórios.', 'error')
+        return redirect(url_for('painel'))
+
+    estoque_path = os.path.join(app.config['UPLOAD_FOLDER'], 'estoque_remume.xlsx')
+    remume_path = os.path.join(app.config['UPLOAD_FOLDER'], 'remume.xlsx')
+
+    arquivo_estoque.save(estoque_path)
+    arquivo_remume.save(remume_path)
+
+    try:
+        executar_analise_remume(estoque_path, remume_path)
+        hoje = datetime.today().strftime('%d-%m-%Y')
+        output = f'Estoque_REMUME_atualizado_{hoje}.xlsx'
+        flash(f'✅ Análise REMUME concluída. <a href="/static/{output}" target="_blank">Baixar resultado</a>', 'success')
+    except Exception as e:
+        flash(f'Erro na análise REMUME: {e}', 'error')
+
+    return redirect(url_for('painel'))
+
 
 @app.route('/logout')
 def logout():
