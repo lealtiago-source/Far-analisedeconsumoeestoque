@@ -161,6 +161,18 @@
             </label>
             <input type="submit" value="Enviar e Analisar">
         </form>
+        
+        <h2>Análise Estoque + Lista REMUME</h2>
+        
+        <form method="post" action="{{ url_for('analise2') }}" enctype="multipart/form-data">
+            <label>📦 Arquivo Estoque: 
+                <input type="file" name="estoque_remume" required>
+            </label>
+            <label>📄 Arquivo REMUME: 
+                <input type="file" name="remume" required>
+            </label>
+                <input type="submit" value="Rodar Análise REMUME">
+        </form>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
