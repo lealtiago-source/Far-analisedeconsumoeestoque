@@ -1,74 +1,78 @@
-
 import pandas as pd
-import os
-import re
 from datetime import datetime
+import re
+import os
+import unidecode
+from openpyxl.styles import Font
+from openpyxl import load_workbook
 
-def normalizar_medicamento(nome):
-    if pd.isna(nome): return ''
-    nome = str(nome).lower()
+def normalizar_nome(texto):
+    if pd.isna(texto): return ''
+    texto = unidecode.unidecode(str(texto).lower())
+    texto = re.sub(r'\b(comprimido|capsula|solucao|injetavel|suspensao|dragea|frasco|ampola|ml|tablete|via oral|uso adulto|uso infantil)\b', '', texto)
+    texto = re.sub(r'\b(cloreto|sodico|potassico|butilbrometo|maleato|nitrato|dihidrato|monoidratado|trihidratado|anidro)\b', '', texto)
+    texto = re.sub(r'[^\w\s]', '', texto)
+    texto = re.sub(r'\s+', ' ', texto).strip()
 
-    # Palavras a remover (formas farmacêuticas, sais e termos irrelevantes)
-    blacklist = [
-        'comprimido', 'cápsula', 'solução', 'xarope', 'injeção', 'dura', 'revestido',
-        'monoidratado', 'dihidratado', 'triidratado', 'gotas', 'suspensão',
-        'cloreto', 'sódico', 'potássico', 'butilbrometo', 'de', 'para', 'uso', 'oral'
-    ]
-    for termo in blacklist:
-        nome = re.sub(rf'\b{termo}\b', '', nome)
+    match = re.search(r'([a-z\s]+)\s([\d]+(?:[.,]\d+)?\s*(mg|mcg|g|ml|mg/ml|%)?)', texto)
+    if match:
+        return f"{match.group(1).strip()} {match.group(2).strip()}"
+    return texto
 
-    # Extrai concentração (ex: 10 mg, 5mg/ml, 500mcg etc.)
-    padrao_conc = re.findall(r'\d+\s?(?:mg|mcg|g|ml|mg/ml|mgml)', nome)
-    concentracao = ' '.join(padrao_conc)
+def executar_analise_remume(caminho_estoque, caminho_remume):
+    df_estoque = pd.read_excel(caminho_estoque)
+    df_remume = pd.read_excel(caminho_remume)
 
-    # Remove concentração do nome
-    nome = re.sub(r'\d+\s?(mg|mcg|g|ml|mg/ml|mgml)', '', nome)
+    df_estoque['normalizado'] = df_estoque['Medicamento/Produto'].apply(normalizar_nome)
+    df_remume['normalizado'] = df_remume['Medicamento/Produto'].apply(normalizar_nome)
 
-    # Limpeza final
-    nome = re.sub(r'[^\w\s]', '', nome)
-    nome = re.sub(r'\s+', ' ', nome).strip()
+    # Medicamentos que estão na REMUME e no estoque
+    intersecao = df_estoque[df_estoque['normalizado'].isin(df_remume['normalizado'])]
 
-    return f"{nome} {concentracao}".strip()
+    # Medicamentos que estão na REMUME mas NÃO estão no estoque
+    falta_no_estoque = df_remume[~df_remume['normalizado'].isin(df_estoque['normalizado'])].copy()
+    falta_no_estoque['Quantidade em Estoque'] = 'EM FALTA'
+    falta_no_estoque = falta_no_estoque[['Medicamento/Produto', 'Quantidade em Estoque']]
 
-def executar_analise_remume(arquivo_estoque, arquivo_remume):
-    try:
-        df_estoque = pd.read_excel(arquivo_estoque)
-        df_remume = pd.read_excel(arquivo_remume)
+    # Agrupar medicamentos em estoque
+    df_intersecao = intersecao.groupby('normalizado').agg({
+        'Medicamento/Produto': 'last',
+        'Quantidade em Estoque': 'sum'
+    }).reset_index()
 
-        # Corrige nomes de colunas
-        df_estoque = df_estoque.rename(columns={
-            'Lote ': 'Lote',
-            'Quantidade em Estoque ': 'Quantidade em Estoque'
-        })
+    # Remover duplicados da intersecao + faltantes
+    df_intersecao = df_intersecao[['Medicamento/Produto', 'Quantidade em Estoque']]
+    df_intersecao['tag'] = 'REMUME'
+    falta_no_estoque['tag'] = 'REMUME'
 
-        # Normaliza nomes
-        df_remume['Normalizado'] = df_remume.iloc[:, 0].apply(normalizar_medicamento)
-        df_estoque['Normalizado'] = df_estoque['Medicamento/Produto'].apply(normalizar_medicamento)
+    # Medicamentos que estão apenas no estoque
+    apenas_estoque = df_estoque[~df_estoque['normalizado'].isin(df_remume['normalizado'])]
 
-        # Agrupamento de estoque
-        df_agrupado = df_estoque.groupby('Normalizado').agg({
-            'Quantidade em Estoque': 'sum'
-        }).reset_index()
+    df_apenas_estoque = apenas_estoque.groupby('normalizado').agg({
+        'Medicamento/Produto': 'last',
+        'Quantidade em Estoque': 'sum'
+    }).reset_index()[['Medicamento/Produto', 'Quantidade em Estoque']]
+    df_apenas_estoque['tag'] = 'OUTROS'
 
-        df_agrupado['Presente no REMUME'] = df_agrupado['Normalizado'].isin(df_remume['Normalizado'])
+    # Concatenar: REMUME (encontrados + em falta), depois OUTROS
+    df_final = pd.concat([df_intersecao, falta_no_estoque, df_apenas_estoque], ignore_index=True)
 
-        nomes_originais = df_estoque[['Normalizado', 'Medicamento/Produto']].drop_duplicates('Normalizado', keep='last')
-        df_final = df_agrupado.merge(nomes_originais, on='Normalizado', how='left')
+    # Ordenar por nome de medicamento
+    df_final = df_final.sort_values(by=['tag', 'Medicamento/Produto'], key=lambda col: col.str.lower()).reset_index(drop=True)
 
-        # Ordena com os do REMUME primeiro
-        df_final = df_final.sort_values(by='Presente no REMUME', ascending=False)
+    # Salvar Excel com título e data
+    hoje = datetime.today().strftime('%d-%m-%Y')
+    nome_arquivo = f'Estoque_REMUME_atualizado_{hoje}.xlsx'
+    caminho_saida = os.path.join('static', nome_arquivo)
 
-        # Reorganiza colunas
-        df_final = df_final[['Medicamento/Produto', 'Quantidade em Estoque', 'Presente no REMUME']]
+    with pd.ExcelWriter(caminho_saida, engine='openpyxl') as writer:
+        df_final[['Medicamento/Produto', 'Quantidade em Estoque']].to_excel(writer, index=False, sheet_name='Estoque REMUME')
+        ws = writer.sheets['Estoque REMUME']
+        ws.insert_rows(1)
+        ws.merge_cells('A1:B1')
+        cell = ws['A1']
+        cell.value = f'Estoque da REMUME - Gerado em {hoje}'
+        cell.font = Font(bold=True)
 
-        # Garante existência da pasta static
-        os.makedirs("static", exist_ok=True)
+    return nome_arquivo
 
-        # Gera nome do arquivo com data
-        hoje = datetime.today().strftime('%d-%m-%Y')
-        caminho_saida = os.path.join("static", f"Estoque_REMUME_atualizado_{hoje}.xlsx")
-
-        df_final.to_excel(caminho_saida, index=False)
-
-    except Exception as e:
-        print(f"Erro na análise REMUME: {e}")
