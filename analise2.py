@@ -24,7 +24,7 @@ def executar_analise_remume(caminho_estoque, caminho_remume):
     df_remume = pd.read_excel(caminho_remume)
 
     df_estoque['normalizado'] = df_estoque['Medicamento/Produto'].apply(normalizar_nome)
-    df_remume['normalizado'] = df_remume['Medicamento/Produto'].apply(normalizar_nome)
+    df_remume['normalizado'] = df_remume['RELAÇÃO MUNICIPAL DE MEDICAMENTOS ESSENCIAIS'].apply(normalizar_nome)
 
     # Medicamentos que estão na REMUME e no estoque
     intersecao = df_estoque[df_estoque['normalizado'].isin(df_remume['normalizado'])]
