@@ -3,3 +3,4 @@ werkzeug
 pandas
 openpyxl
 gunicorn
+unidecode
