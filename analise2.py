@@ -42,8 +42,7 @@ def executar_analise_remume(caminho_estoque, caminho_remume):
     falta_no_estoque['Quantidade em Estoque'] = 'EM FALTA'
     falta_no_estoque = falta_no_estoque[['Medicamento/Produto', 'Quantidade em Estoque']]
     falta_no_estoque['tag'] = 'REMUME'
-    falta_no_estoque = falta_no_estoque[['Medicamento/Produto', 'Quantidade em Estoque', 'tag']]
-
+    
     apenas_estoque = df_estoque[~df_estoque['normalizado'].isin(df_remume['normalizado'])]
     df_apenas_estoque = apenas_estoque.groupby('normalizado').agg({
         'Medicamento/Produto': 'last',
