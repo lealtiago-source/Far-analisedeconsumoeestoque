@@ -11,19 +11,30 @@ def executar_analise_remume(caminho_estoque, caminho_remume):
     col_remume = 'RELAÇÃO MUNICIPAL DE MEDICAMENTOS ESSENCIAIS'
     resultado = []
 
-    # Deixar todos em minúsculo para facilitar comparações
-    df_estoque['Medicamento/Produto'] = df_estoque['Medicamento/Produto'].astype(str).str.lower()
-    df_remume[col_remume] = df_remume[col_remume].astype(str).str.lower()
+    # Normalização básica: minúsculas e remoção de espaços extras
+    df_estoque['Medicamento/Produto'] = (
+        df_estoque['Medicamento/Produto'].astype(str).str.lower().str.replace(r'\s+', ' ', regex=True).str.strip()
+    )
+    df_remume[col_remume] = (
+        df_remume[col_remume].astype(str).str.lower().str.replace(r'\s+', ' ', regex=True).str.strip()
+    )
 
     for nome_remume in df_remume[col_remume]:
+        # Inverter lógica: procurar se o nome da remume está parcialmente presente no estoque
         correspondentes = df_estoque[df_estoque['Medicamento/Produto'].str.contains(nome_remume, na=False)]
 
         if not correspondentes.empty:
             melhor_correspondente = correspondentes['Medicamento/Produto'].iloc[0]
             total_estoque = correspondentes['Quantidade em Estoque'].sum()
         else:
-            melhor_correspondente = ''
-            total_estoque = 'EM FALTA'
+            # Tentativa inversa: procura se o nome do estoque contém o nome_remume parcialmente
+            correspondentes = df_estoque[df_estoque['Medicamento/Produto'].apply(lambda x: nome_remume in x)]
+            if not correspondentes.empty:
+                melhor_correspondente = correspondentes['Medicamento/Produto'].iloc[0]
+                total_estoque = correspondentes['Quantidade em Estoque'].sum()
+            else:
+                melhor_correspondente = ''
+                total_estoque = 'EM FALTA'
 
         resultado.append({
             'Medicamento REMUME': nome_remume,
@@ -44,7 +55,7 @@ def executar_analise_remume(caminho_estoque, caminho_remume):
         ws.insert_rows(1)
         ws.merge_cells('A1:C1')
         cell = ws['A1']
-        cell.value = f'Estoque da REMUME por correspondência direta - {hoje}'
+        cell.value = f'Estoque da REMUME por correspondência flexível - {hoje}'
         cell.font = Font(bold=True)
 
     return nome_arquivo
