@@ -56,7 +56,7 @@ def executar_analise_remume(caminho_estoque, caminho_remume):
     ])
 
     hoje = datetime.today().strftime('%d-%m-%Y')
-    nome_arquivo = f'Estoque_REMUME_correspondencia_{hoje}.xlsx'
+    nome_arquivo = f'resultado_analise_{hoje}.xlsx'
     caminho_saida = os.path.join('static', nome_arquivo)
 
     with pd.ExcelWriter(caminho_saida, engine='openpyxl') as writer:
