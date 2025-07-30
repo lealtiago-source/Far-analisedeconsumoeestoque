@@ -8,16 +8,26 @@ from openpyxl import load_workbook
 
 def normalizar_nome(texto):
     if pd.isna(texto): return ''
+    
+    # Coloca tudo em minúsculo e remove acentos
     texto = str(texto).lower()
     texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8')
-    texto = re.sub(r'\b(comprimido|capsula|solucao|injetavel|suspensao|dragea|frasco|ampola|ml|tablete|via oral|uso adulto|uso infantil)\b', '', texto)
-    texto = re.sub(r'\b(cloreto|sodico|potassico|butilbrometo|maleato|nitrato|dihidrato|monoidratado|trihidratado|anidro)\b', '', texto)
-    texto = re.sub(r'[^\w\s]', '', texto)
-    texto = re.sub(r'\s+', ' ', texto).strip()
 
+    # Remove termos irrelevantes (forma farmacêutica, uso, etc.)
+    texto = re.sub(r'\b(comprimido|capsula|caps dura|solucao|injetavel|suspensao|dragea|frasco|ampola|tablete|via oral|uso adulto|uso infantil|gotas|topico|dermico|retal|oral|subcutaneo|intravenoso|spray|gel|pomada|creme|xarope|liquido|colirio|nebulizacao)\b', '', texto)
+
+    # Remove adjetivos farmacêuticos que atrapalham comparações
+    texto = re.sub(r'\b(cloreto|sodico|potassico|butilbrometo|maleato|nitrato|dihidrato|monoidratado|trihidratado|anidro|base|acido)\b', '', texto)
+
+    # Remove unidades de volume desnecessárias e lixo
+    texto = re.sub(r'[^\w\s]', '', texto)         # remove pontuação
+    texto = re.sub(r'\s+', ' ', texto).strip()    # remove espaços extras
+
+    # Reforça o agrupamento por nome + dosagem
     match = re.search(r'([a-z\s]+)\s([\d]+(?:[.,]\d+)?\s*(mg|mcg|g|ml|mg/ml|%)?)', texto)
     if match:
         return f"{match.group(1).strip()} {match.group(2).strip()}"
+
     return texto
 
 def executar_analise_remume(caminho_estoque, caminho_remume):
