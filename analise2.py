@@ -4,7 +4,7 @@ import os
 from openpyxl.styles import Font
 from openpyxl import load_workbook
 
-def executar_analise_remume_por_substring(caminho_estoque, caminho_remume):
+def analise2(caminho_estoque, caminho_remume):
     df_estoque = pd.read_excel(caminho_estoque)
     df_remume = pd.read_excel(caminho_remume)
 
