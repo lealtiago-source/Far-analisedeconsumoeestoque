@@ -9,7 +9,7 @@ def executar_analise_remume(caminho_estoque, caminho_correspondencias):
     df_mapeamento = pd.read_excel(caminho_correspondencias)
 
     col_remume = 'RELAÇÃO MUNICIPAL DE MEDICAMENTOS ESSENCIAIS'
-    col_estoque = 'Medicamento/Produto no Estoque'
+    col_estoque = 'Medicamento/Produto'
 
     # Normalizar nomes
     df_estoque['Medicamento/Produto'] = df_estoque['Medicamento/Produto'].astype(str).str.lower().str.strip()
