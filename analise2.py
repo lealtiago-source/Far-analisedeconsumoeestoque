@@ -4,49 +4,42 @@ import os
 from openpyxl.styles import Font
 from openpyxl import load_workbook
 
-def executar_analise_remume(caminho_estoque, caminho_remume):
+def executar_analise_remume(caminho_estoque, caminho_correspondencias):
     df_estoque = pd.read_excel(caminho_estoque)
-    df_remume = pd.read_excel(caminho_remume)
+    df_mapeamento = pd.read_excel(caminho_correspondencias)
 
     col_remume = 'RELAÇÃO MUNICIPAL DE MEDICAMENTOS ESSENCIAIS'
+    col_estoque = 'Medicamento/Produto no Estoque'
+
+    # Normalizar nomes
+    df_estoque['Medicamento/Produto'] = df_estoque['Medicamento/Produto'].astype(str).str.lower().str.strip()
+    df_mapeamento[col_estoque] = df_mapeamento[col_estoque].astype(str).str.lower().str.strip()
+    df_mapeamento[col_remume] = df_mapeamento[col_remume].astype(str).str.lower().str.strip()
+
     resultado = []
 
-    # Normalização básica: minúsculas e remoção de espaços extras
-    df_estoque['Medicamento/Produto'] = (
-        df_estoque['Medicamento/Produto'].astype(str).str.lower().str.replace(r'\s+', ' ', regex=True).str.strip()
-    )
-    df_remume[col_remume] = (
-        df_remume[col_remume].astype(str).str.lower().str.replace(r'\s+', ' ', regex=True).str.strip()
-    )
+    for _, row in df_mapeamento.iterrows():
+        nome_remume = row[col_remume]
+        nome_estoque = row[col_estoque]
 
-    for nome_remume in df_remume[col_remume]:
-        # Inverter lógica: procurar se o nome da remume está parcialmente presente no estoque
-        correspondentes = df_estoque[df_estoque['Medicamento/Produto'].str.contains(nome_remume, na=False)]
+        correspondentes = df_estoque[df_estoque['Medicamento/Produto'] == nome_estoque]
 
         if not correspondentes.empty:
-            melhor_correspondente = correspondentes['Medicamento/Produto'].iloc[0]
             total_estoque = correspondentes['Quantidade em Estoque'].sum()
         else:
-            # Tentativa inversa: procura se o nome do estoque contém o nome_remume parcialmente
-            correspondentes = df_estoque[df_estoque['Medicamento/Produto'].apply(lambda x: nome_remume in x)]
-            if not correspondentes.empty:
-                melhor_correspondente = correspondentes['Medicamento/Produto'].iloc[0]
-                total_estoque = correspondentes['Quantidade em Estoque'].sum()
-            else:
-                melhor_correspondente = ''
-                total_estoque = 'EM FALTA'
+            total_estoque = 'EM FALTA'
 
         resultado.append({
             'Medicamento REMUME': nome_remume,
-            'Correspondente Estoque': melhor_correspondente,
+            'Medicamento no Estoque': nome_estoque,
             'Quantidade em Estoque': total_estoque
         })
 
     df_resultado = pd.DataFrame(resultado)
 
-    # Exportar para Excel
+    # Exportar Excel
     hoje = datetime.today().strftime('%d-%m-%Y')
-    nome_arquivo = f'Estoque_REMUME_atualizado_{hoje}.xlsx'
+    nome_arquivo = f'Estoque_REMUME_MAPEADO_{hoje}.xlsx'
     caminho_saida = os.path.join('static', nome_arquivo)
 
     with pd.ExcelWriter(caminho_saida, engine='openpyxl') as writer:
@@ -55,7 +48,7 @@ def executar_analise_remume(caminho_estoque, caminho_remume):
         ws.insert_rows(1)
         ws.merge_cells('A1:C1')
         cell = ws['A1']
-        cell.value = f'Estoque da REMUME por correspondência flexível - {hoje}'
+        cell.value = f'Estoque REMUME com correspondência mapeada - {hoje}'
         cell.font = Font(bold=True)
 
     return nome_arquivo
