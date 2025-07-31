@@ -39,7 +39,7 @@ def executar_analise_remume(caminho_estoque, caminho_correspondencias):
 
     # Exportar Excel
     hoje = datetime.today().strftime('%d-%m-%Y')
-    nome_arquivo = f'Estoque_REMUME_MAPEADO_{hoje}.xlsx'
+    nome_arquivo = f'Estoque_REMUME_atualizado_{hoje}.xlsx'
     caminho_saida = os.path.join('static', nome_arquivo)
 
     with pd.ExcelWriter(caminho_saida, engine='openpyxl') as writer:
