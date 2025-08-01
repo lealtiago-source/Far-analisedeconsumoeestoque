@@ -120,6 +120,11 @@ def executar_analise(arquivo_dispensacao, arquivo_distribuicao, arquivo_estoque)
                              for _, row in nao_usados.iterrows())
 
         resumo['Lotes/Validades Não Utilizados'] = resumo['Medicamento Agrupado'].apply(obter_lotes_nao_utilizados)
+        
+# Reorganiza colunas: move a nova coluna para o final
+        colunas = [col for col in resumo.columns if col != 'Lotes/Validades Não Utilizados']
+        colunas.append('Lotes/Validades Não Utilizados')
+        resumo = resumo[colunas]
 
         hoje = datetime.today()
 
