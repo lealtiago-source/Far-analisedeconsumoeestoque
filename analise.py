@@ -1,4 +1,3 @@
-
 import pandas as pd
 from datetime import datetime, timedelta
 from openpyxl import load_workbook
@@ -27,7 +26,7 @@ def agrupar_equivalentes(nome):
 def executar_analise(arquivo_dispensacao, arquivo_distribuicao, arquivo_estoque):
     try:
         df_disp = pd.read_excel(arquivo_dispensacao)
-        df_disp.columns = df_disp.columns.str.strip()  # Remove espaços nos nomes das colunas
+        df_disp.columns = df_disp.columns.str.strip()
         df_disp = df_disp[['Data Dispensação', 'Medicamento/Produto', 'Lote', 'Quantidade Dispensada']]
 
         df_dist = pd.read_excel(arquivo_distribuicao)
@@ -108,6 +107,20 @@ def executar_analise(arquivo_dispensacao, arquivo_distribuicao, arquivo_estoque)
 
         resumo = resumo.merge(estoque_val, on='Medicamento Agrupado', how='left')
 
+        # NOVA COLUNA: Lotes/Validades não utilizados
+        def obter_lotes_nao_utilizados(med):
+            dados = df_estoque[df_estoque['Medicamento Agrupado'] == med]
+            if len(dados) <= 1:
+                return ''
+            val_usada = dados['Validade'].min()
+            nao_usados = dados[dados['Validade'] > val_usada]
+            if nao_usados.empty:
+                return ''
+            return '; '.join(f"{row['Lote']} ({row['Validade'].date().strftime('%d/%m/%Y')})"
+                             for _, row in nao_usados.iterrows())
+
+        resumo['Lotes/Validades Não Utilizados'] = resumo['Medicamento Agrupado'].apply(obter_lotes_nao_utilizados)
+
         hoje = datetime.today()
 
         def prever_estoque_ou_falta(row):
@@ -136,7 +149,6 @@ def executar_analise(arquivo_dispensacao, arquivo_distribuicao, arquivo_estoque)
         with pd.ExcelWriter(caminho_saida, engine='openpyxl') as writer:
             resumo_final.to_excel(writer, index=False)
 
-        # Aplicar formatação
         wb = load_workbook(caminho_saida)
         ws = wb.active
 
