@@ -147,7 +147,7 @@
     </header>
 
     <main>
-        <h1>Upload de Arquivos para Análise</h1>
+        <h2>Análise de consumo e estoque</h2>
 
         <form method="post" enctype="multipart/form-data">
             <label>📁 Arquivo 1 (Dispensação): 
@@ -172,6 +172,17 @@
                 <input type="file" name="remume" required>
             </label>
                 <input type="submit" value="Rodar Análise REMUME">
+        </form>
+
+        <h2>📊 Análise de Orçamento</h2>
+        <form method="post" action="{{ url_for('analise_orcamento') }}" enctype="multipart/form-data">
+            <label>📁 Arquivo 1 (Dispensação): 
+                <input type="file" name="orcamento_dispensacao" required>
+            </label>
+            <label>📦 Arquivo 2 (Distribuição): 
+                <input type="file" name="orcamento_distribuicao" required>
+            </label>
+            <input type="submit" value="Rodar Análise de Orçamento">
         </form>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
