@@ -2,8 +2,8 @@ from flask import Flask, render_template, request, redirect, url_for, send_file,
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
-from analise import executar_analise  # sua função de análise
-from analise2 import executar_analise_remume
+from analise import executar_analise  # análise principal
+from analise2 import executar_analise_remume  # análise REMUME
 
 app = Flask(__name__)
 app.secret_key = 'sua_chave_supersecreta'
@@ -86,6 +86,42 @@ def analise2():
         flash(f'✅ Análise REMUME concluída. <a href="/static/{output}" target="_blank">Baixar resultado</a>', 'success')
     except Exception as e:
         flash(f'Erro na análise REMUME: {e}', 'error')
+
+    return redirect(url_for('painel'))
+
+
+# ✅ NOVA ROTA: Análise de Orçamento
+@app.route('/analise_orcamento', methods=['POST'])
+def analise_orcamento():
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
+
+    try:
+        arquivo_dispensacao = request.files.get('orcamento_dispensacao')
+        arquivo_distribuicao = request.files.get('orcamento_distribuicao')
+
+        if not arquivo_dispensacao or not arquivo_distribuicao:
+            flash('Arquivos de dispensação e distribuição são obrigatórios para a análise de orçamento.', 'error')
+            return redirect(url_for('painel'))
+
+        # Caminhos dos uploads
+        dispensacao_path = os.path.join(app.config['UPLOAD_FOLDER'], 'orcamento_dispensacao.xlsx')
+        distribuicao_path = os.path.join(app.config['UPLOAD_FOLDER'], 'orcamento_distribuicao.xlsx')
+
+        arquivo_dispensacao.save(dispensacao_path)
+        arquivo_distribuicao.save(distribuicao_path)
+
+        # Importa a função (para evitar erro se o módulo não existir ainda)
+        from analise_orcamento import executar_analise_orcamento
+        resultado_path = executar_analise_orcamento(dispensacao_path, distribuicao_path)
+
+        # Move resultado para /static/
+        destino = os.path.join('static', 'resultado_orcamento.xlsx')
+        os.replace(resultado_path, destino)
+
+        flash(f'✅ Análise de orçamento concluída. <a href="/static/resultado_orcamento.xlsx" target="_blank">Baixar resultado</a>', 'success')
+    except Exception as e:
+        flash(f'❌ Erro na análise de orçamento: {e}', 'error')
 
     return redirect(url_for('painel'))
 
