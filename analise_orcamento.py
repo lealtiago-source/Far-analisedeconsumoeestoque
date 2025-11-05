@@ -35,7 +35,7 @@ def executar_analise_orcamento(arquivo_dispensacao, arquivo_distribuicao):
         df_dist = pd.read_excel(arquivo_distribuicao)
         df_dist.columns = df_dist.columns.str.strip()
         df_dist = df_dist[['Data Distribuição', 'Medicamento/Produto', 'Lote', 
-                           'Quantidade distribuída (unidades)', 'Valor Unitário']]
+                           'Quantidade distribuída (unidades)', 'Valor unitário']]
 
         # --- Padroniza colunas ---
         df_disp = df_disp.rename(columns={
@@ -46,7 +46,7 @@ def executar_analise_orcamento(arquivo_dispensacao, arquivo_distribuicao):
         df_dist = df_dist.rename(columns={
             'Data Distribuição': 'Data',
             'Quantidade distribuída (unidades)': 'Quantidade',
-            'Valor Unitário': 'Valor Unitário'
+            'Valor unitário': 'Valor Unitário'
         })
 
         # --- Adiciona origem e une tudo ---
