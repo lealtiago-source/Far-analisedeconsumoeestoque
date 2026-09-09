@@ -1,31 +1,393 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
-    <title>Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Login - Análise de Consumo e Estoque</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f2f4f7;
+            color: #333;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 500px;
+            margin: 50px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.10);
+        }
+
+        h2 {
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 25px;
+            color: #2c3e50;
+        }
+
+        /* FORMULÁRIO */
+
+        .formulario label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        .formulario input {
+            width: 100%;
+            padding: 11px;
+            margin-bottom: 18px;
+            border: 1px solid #ccc;
+            border-radius: 7px;
+            font-size: 15px;
+        }
+
+        .formulario input:focus {
+            outline: none;
+            border-color: #2c3e50;
+        }
+
+        .formulario button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 7px;
+            background: #2c3e50;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .formulario button:hover {
+            opacity: 0.9;
+        }
+
+
+        /* MENSAGENS DE ERRO */
+
+        .mensagens {
+            margin: 0 0 15px 0;
+            padding: 0;
+        }
+
+        .mensagens li {
+            color: red;
+            list-style: none;
+            text-align: center;
+        }
+
+
+        /* ÁREA DOS DOCUMENTOS */
+
+        .documentos {
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 25px;
+        }
+
+        .documentos h3 {
+            text-align: center;
+            margin: 0 0 22px 0;
+            color: #2c3e50;
+            font-size: 19px;
+        }
+
+
+        /* TÍTULO DAS CATEGORIAS */
+
+        .categoria {
+            margin-top: 22px;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e0e0e0;
+
+            font-size: 16px;
+            font-weight: bold;
+            color: #444;
+        }
+
+
+        /* LINKS DOS DOCUMENTOS */
+
+        .link-documento {
+            display: block;
+            width: 100%;
+
+            padding: 12px 15px;
+            margin: 8px 0;
+
+            border: 1px solid #ddd;
+            border-radius: 8px;
+
+            background: #f8f9fa;
+
+            color: #333;
+            text-decoration: none;
+
+            font-size: 14px;
+
+            transition: all 0.2s ease;
+        }
+
+        .link-documento:hover {
+            background: #e9ecef;
+            border-color: #bbb;
+            transform: translateY(-1px);
+        }
+
+
+        /* RODAPÉ */
+
+        .rodape {
+            text-align: center;
+            margin-top: 25px;
+            font-size: 12px;
+            color: #777;
+        }
+
+    </style>
+
 </head>
-   <body>
-    <h2>Login</h2>
+
+
+<body>
+
+
+<div class="container">
+
+
+    <!-- ========================= -->
+    <!-- LOGIN                     -->
+    <!-- ========================= -->
+
+    <h2>🔐 Login</h2>
+
+
     {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <ul>
-          {% for msg in messages %}
-            <li style="color:red">{{ msg }}</li>
-          {% endfor %}
-        </ul>
-      {% endif %}
+
+        {% if messages %}
+
+            <ul class="mensagens">
+
+                {% for msg in messages %}
+
+                    <li>{{ msg }}</li>
+
+                {% endfor %}
+
+            </ul>
+
+        {% endif %}
+
     {% endwith %}
-    <form method="POST">
-        <label>Usuário: <input type="text" name="usuario"></label><br><br>
-        <label>Senha: <input type="password" name="senha"></label><br><br>
-        <button type="submit">Entrar</button>
+
+
+    <form method="POST" class="formulario">
+
+
+        <label for="usuario">
+            Usuário:
+        </label>
+
+        <input
+            type="text"
+            id="usuario"
+            name="usuario"
+            required
+        >
+
+
+        <label for="senha">
+            Senha:
+        </label>
+
+        <input
+            type="password"
+            id="senha"
+            name="senha"
+            required
+        >
+
+
+        <button type="submit">
+            Entrar
+        </button>
+
+
     </form>
-    <p style="text-align: center; margin-top: 20px;">
-    <a href="{{ url_for('static', filename='Instruções.pdf') }}" target="_blank">
-        Baixar Manual de Instruções (PDF)
-    <a href="{{ url_for('static', filename='distribuição 2016.xlsx') }}" target="_blank">
-        Baixar arquivo entrada Distribuições
-    </a>
-</p>
-</body>
-</html>
+
+
+
+    <!-- ========================= -->
+    <!-- DOCUMENTOS                -->
+    <!-- ========================= -->
+
+    <div class="documentos">
+
+
+        <h3>
+            📚 Materiais e documentos
+        </h3>
+
+
+
+        <!-- ========================= -->
+        <!-- MANUAL DE INSTRUÇÕES      -->
+        <!-- ========================= -->
+
+        <div class="categoria">
+            📖 Manual de instruções
+        </div>
+
+
+        <a
+            href="{{ url_for('static', filename='Instruções.pdf') }}"
+            target="_blank"
+            class="link-documento"
+        >
+            📖 Manual de Instruções
+        </a>
+
+
+
+        <!-- ========================= -->
+        <!-- DADOS DE ENTRADA          -->
+        <!-- ========================= -->
+
+        <div class="categoria">
+            📥 Dados de entrada
+        </div>
+
+
+        <a
+            href="{{ url_for('static', filename='dispensacoes.xlsx') }}"
+            target="_blank"
+            class="link-documento"
+        >
+            💊 Dispensações
+        </a>
+
+
+        <a
+            href="{{ url_for('static', filename='distribuição 2016.xlsx') }}"
+            target="_blank"
+            class="link-documento"
+        >
+            📦 Distribuições
+        </a>
+
+
+        <a
+            href="{{ url_for('static', filename='estoque.xlsx') }}"
+            target="_blank"
+            class="link-documento"
+        >
+            🏪 Estoque
+        </a>
+
+
+        <a
+            href="{{ url_for('static', filename='controle_pedidos_entregas.xlsx') }}"
+            target="_blank"
+            class="link-documento"
+        >
+            🚚 Controle de pedidos e entregas
+        </a>
+
+
+        <a
+            href="{{ url_for('static', filename='listas_licitacoes.xlsx') }}"
+            target="_blank"
+            class="link-documento"
+        >
+            📋 Listas das licitações
+        </a>
+
+
+        <a
+            href="{{ url_for('static', filename='lista_REMUME.xlsx') }}"
+            target="_blank"
+            class="link-documento"
+        >
+            💊 Lista REMUME
+        </a>
+
+
+
+        <!-- ========================= -->
+        <!-- DADOS DE SAÍDA            -->
+        <!-- ========================= -->
+
+        <div class="categoria">
+            📤 Dados de saída
+        </div>
+
+
+        <a
+            href="{{ url_for('static', filename='resultado_analise.xlsx') }}"
+            target="_blank"
+            class="link-documento"
+        >
+            📊 Análise de consumo e estoque
+        </a>
+
+
+        <a
+            href="{{ url_for('static', filename='estoque_REMUME.xlsx') }}"
+            target="_blank"
+            class="link-documento"
+        >
+            📋 Estoque REMUME para Divulgação
+        </a>
+
+
+        <a
+            href="{{ url_for('static', filename='orcamento_previsto.xlsx') }}"
+            target="_blank"
+            class="link-documento"
+        >
+            💰 Orçamento Previsto
+        </a>
+
+
+        <a
+            href="{{ url_for('static', filename='relatorio_compra.docx') }}"
+            target="_blank"
+            class="link-documento"
+        >
+            📝 Relatório de compra — Word
+        </a>
+
+
+        <a
+            href="{{ url_for('static', filename='relatorio_compra.xlsx') }}"
+            target="_blank"
+            class="link-documento"
+        >
+            📊 Relatório de compra — Excel
+        </a>
+
+
+    </div>
+
+
+
+    <!-- ========================= -->
+    <!-- RODAPÉ                    -->
+    <!-- ========================= -->
+
+    <div class="rodape">
