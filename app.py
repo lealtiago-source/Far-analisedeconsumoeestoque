@@ -140,7 +140,12 @@ def _carregar_usuarios() -> dict[str, str]:
     return usuarios
 
 
-USUARIOS = _carregar_usuarios()
+USUARIOS = {
+    "tiago": generate_password_hash("123456"),
+    "admin": generate_password_hash("admin123"),
+    "congresso": generate_password_hash("mineirocrfmg")
+}
+
 
 
 def login_obrigatorio(view):
