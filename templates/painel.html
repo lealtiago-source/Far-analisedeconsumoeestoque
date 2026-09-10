@@ -2,57 +2,45 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Painel de Análise</title>
     <style>
-        /* Reset básico e fonte */
         html, body {
-            height: 100%;
+            min-height: 100%;
             margin: 0;
-            padding: 0 20px 0 20px;
+            padding: 0 20px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f2f4f8;
             display: flex;
             flex-direction: column;
         }
-
-        /* Topo */
         header {
             background-color: #007bff;
-            color: white;
+            color: #fff;
             padding: 15px 30px;
             border-radius: 0 0 10px 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
         }
-        header h2 {
-            margin: 0;
-            font-weight: 600;
-            font-size: 1.5rem;
-        }
-        header span a {
-            color: #dcdcdc;
-            text-decoration: none;
-            font-weight: 600;
-            margin-left: 10px;
-        }
-        header span a:hover {
-            color: #fff;
-            text-decoration: underline;
-        }
+        header h2 { margin: 0; font-weight: 600; font-size: 1.4rem; }
+        header a { color: #dcdcdc; text-decoration: none; font-weight: 600; margin-left: 10px; }
+        header a:hover { color: #fff; text-decoration: underline; }
 
-        /* Conteúdo principal */
         main {
             flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding-top: 40px;
+            padding: 30px 0;
+            width: 100%;
         }
+        h2.secao { font-size: 1.15rem; color: #22314a; margin: 28px 0 12px; }
 
-        /* Formulário */
         form {
-            background: #ffffff;
+            background: #fff;
             padding: 25px 30px;
             border-radius: 10px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
@@ -68,49 +56,47 @@
             color: #333;
             cursor: pointer;
         }
-        form label input[type="file"] {
-            display: block;
-            margin-top: 6px;
-            cursor: pointer;
+        form label input { display: block; margin-top: 6px; cursor: pointer; }
+        form label input[type="number"] {
+            padding: 8px;
+            border: 1px solid #ccd2dc;
+            border-radius: 6px;
+            font-size: 1rem;
+            width: 140px;
         }
         form input[type="submit"] {
             background-color: #28a745;
-            color: white;
+            color: #fff;
             padding: 12px;
             border: none;
             border-radius: 6px;
             width: 100%;
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             font-weight: 700;
             cursor: pointer;
-            transition: background-color 0.3s ease;
+            transition: background-color .3s ease;
         }
-        form input[type="submit"]:hover {
-            background-color: #218838;
-        }
+        form input[type="submit"]:hover { background-color: #218838; }
 
-        /* Mensagens flash */
-        .flash {
-            margin: 20px auto 0 auto;
+        .flash, .downloads {
+            margin: 16px auto 0;
             padding: 15px;
             border-radius: 6px;
-            font-weight: 700;
             max-width: 480px;
+            width: 100%;
             text-align: center;
             box-sizing: border-box;
+            font-weight: 600;
         }
-        .flash.success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .flash.error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
+        .flash.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .flash.error   { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .flash.warning { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .downloads { background: #fff; border: 1px solid #dde3ec; text-align: left; }
+        .downloads h3 { margin: 0 0 10px; font-size: 1rem; color: #22314a; }
+        .downloads ul { margin: 0; padding-left: 18px; }
+        .downloads li { margin-bottom: 6px; font-weight: 500; }
+        .downloads a { color: #007bff; }
 
-        /* Rodapé */
         footer {
             margin-top: auto;
             text-align: center;
@@ -121,19 +107,10 @@
             border-top: 1px solid #ccc;
         }
 
-        /* Responsivo */
         @media(max-width: 540px) {
-            header, form {
-                padding-left: 15px;
-                padding-right: 15px;
-            }
-            form label {
-                font-size: 0.9rem;
-            }
-            form input[type="submit"] {
-                font-size: 1rem;
-                padding: 10px;
-            }
+            header, form { padding-left: 15px; padding-right: 15px; }
+            form label { font-size: .9rem; }
+            form input[type="submit"] { font-size: 1rem; padding: 10px; }
         }
     </style>
 </head>
@@ -147,51 +124,91 @@
     </header>
 
     <main>
-        <h2>Análise de consumo e estoque</h2>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
 
-        <form method="post" enctype="multipart/form-data">
-            <label>📁 Arquivo 1 (Dispensação): 
-                <input type="file" name="arquivo1" required>
+        {% set resultados = [
+            ('Análise principal', session.get('ultimo_resultado')),
+            ('Relatório de compra (Word)', session.get('ultimo_word')),
+            ('Relatório de compra (Excel)', session.get('ultimo_excel')),
+            ('Cruzamento REMUME', session.get('ultimo_remume')),
+            ('Projeção orçamentária', session.get('ultimo_orcamento'))
+        ] %}
+        {% if resultados | selectattr(1) | list %}
+          <div class="downloads">
+            <h3>Arquivos gerados nesta sessão</h3>
+            <ul>
+              {% for rotulo, nome in resultados %}
+                {% if nome %}
+                  <li>{{ rotulo }}:
+                    <a href="{{ url_for('download', nome=nome) }}">{{ nome }}</a>
+                  </li>
+                {% endif %}
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        <h2 class="secao">Análise de consumo e estoque</h2>
+        <form method="post" action="{{ url_for('analise') }}" enctype="multipart/form-data">
+            <label>📁 Arquivo 1 (Dispensação):
+                <input type="file" name="arquivo1" accept=".xlsx,.xls" required>
             </label>
-            <label>📦 Arquivo 2 (Distribuição): 
-                <input type="file" name="arquivo2" required>
+            <label>📦 Arquivo 2 (Distribuição):
+                <input type="file" name="arquivo2" accept=".xlsx,.xls" required>
             </label>
-            <label>🏥 Arquivo 3 (Estoque): 
-                <input type="file" name="arquivo3" required>
+            <label>🏥 Arquivo 3 (Estoque):
+                <input type="file" name="arquivo3" accept=".xlsx,.xls" required>
+            </label>
+            <label>📄 Arquivo 4 (Pendências sem NF) — opcional:
+                <input type="file" name="arquivo4" accept=".xlsx,.xls">
             </label>
             <input type="submit" value="Enviar e Analisar">
         </form>
-        
-        <h2>Análise Estoque + Lista REMUME</h2>
-        
-        <form method="post" action="{{ url_for('analise2') }}" enctype="multipart/form-data">
-            <label>📦 Arquivo Estoque: 
-                <input type="file" name="estoque_remume" required>
+
+        <h2 class="secao">Análise Estoque + Lista REMUME</h2>
+        <form method="post" action="{{ url_for('analise_remume') }}" enctype="multipart/form-data">
+            <label>📦 Arquivo Estoque:
+                <input type="file" name="arquivo_estoque" accept=".xlsx,.xls" required>
             </label>
-            <label>📄 Arquivo REMUME: 
-                <input type="file" name="remume" required>
+            <label>📄 Arquivo REMUME (correspondências):
+                <input type="file" name="arquivo_correspondencias" accept=".xlsx,.xls" required>
             </label>
-                <input type="submit" value="Rodar Análise REMUME">
+            <input type="submit" value="Rodar Análise REMUME">
         </form>
 
-        <h2>📊 Análise de Orçamento</h2>
+        <h2 class="secao">📊 Análise de Orçamento</h2>
         <form method="post" action="{{ url_for('analise_orcamento') }}" enctype="multipart/form-data">
-            <label>📁 Arquivo 1 (Dispensação): 
-                <input type="file" name="orcamento_dispensacao" required>
+            <label>📁 Arquivo 1 (Dispensação):
+                <input type="file" name="arquivo_disp_orcamento" accept=".xlsx,.xls" required>
             </label>
-            <label>📦 Arquivo 2 (Distribuição): 
-                <input type="file" name="orcamento_distribuicao" required>
+            <label>📦 Arquivo 2 (Distribuição):
+                <input type="file" name="arquivo_dist_orcamento" accept=".xlsx,.xls" required>
             </label>
             <input type="submit" value="Rodar Análise de Orçamento">
         </form>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="flash {{ category }}">{{ message|safe }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
+        <h2 class="secao">🛒 Relatório Automatizado de Compra</h2>
+        <form method="post" action="{{ url_for('analise_compra') }}" enctype="multipart/form-data">
+            <label>📄 Arquivo Resultado da Análise Principal (.xlsx):
+                <input type="file" name="arquivo_compra" accept=".xlsx" required>
+            </label>
+            <label>📄 Arquivo Licitações (.xlsx) — opcional:
+                <input type="file" name="arquivo_licitacao" accept=".xlsx">
+            </label>
+            <label>⏳ Limite para validade crítica (dias):
+                <input type="number" name="dias_validade" value="{{ dias_validade_padrao }}" min="1" max="3650" required>
+            </label>
+            <label>📅 Limite para previsão de término do estoque (dias):
+                <input type="number" name="dias_estoque" value="{{ dias_estoque_padrao }}" min="1" max="3650" required>
+            </label>
+            <input type="submit" value="Gerar Relatório de Compra">
+        </form>
     </main>
 
     <footer>
